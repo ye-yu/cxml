@@ -37,11 +37,17 @@ int parse(reader_context context, const int level) {
   char *write_buffer = NULL;
   int write_buffer_allocation = 0;
   write_buffer_allocation = allocate_more((void**)&write_buffer, write_buffer_allocation, sizeof(char), ASSIGN_CHAR);
-  reader_context *context_p;
-  while((matched = reader_tobuffer(context_p, 5, ' ', '\t', '\n', '{', '[')) != -2) {
-    char *buffer = malloc(sizeof(char)*reader_size(context_p) + 1);
-    for (size_t i = 0; i <= reader_size(context_p); i++) buffer[i] = '\0';
+  reader_context *context_p = &context;
+  while((matched = reader_tobuffer(context_p, 5, ' ', '\t', '\n', '[', '{')) != -2) {
+    const size_t reader_len = reader_size(context_p);
+    if (!reader_len) goto writer_cleanup;
+    char *buffer = malloc(sizeof(char)*reader_len + 1);
+    for (size_t i = 0; i <= reader_len; i++) buffer[i] = '\0';
     reader_cpy(context_p, buffer);
+    #ifdef DEBUG
+    printf("Parsing token: %s\n", buffer);
+    #endif
+
 
     switch (matched) {
       case -1: {
@@ -75,7 +81,7 @@ int parse(reader_context context, const int level) {
           recursive_allocation = allocate_more((void**)&recursive_buffer, recursive_allocation, sizeof(char), ASSIGN_CHAR);
           while((c = reader_char(context_p)) != EOF) {
             c2str[0] = c;
-            if ((length + 10) / recursive_allocation > 0.75)recursive_allocation = allocate_more((void**)&recursive_buffer, recursive_allocation, sizeof(char), ASSIGN_CHAR);
+            if ((length + 1.0) / recursive_allocation > 0.75)recursive_allocation = allocate_more((void**)&recursive_buffer, recursive_allocation, sizeof(char), ASSIGN_CHAR);
             switch (c) {
               case '{':
                 blocks++;
@@ -84,20 +90,23 @@ int parse(reader_context context, const int level) {
               case '}':
                 if (!blocks) goto startlex;
                 blocks--;
-                strcat(recursive_buffer, c2str);
               default:
                 strcat(recursive_buffer, c2str);
                 break;
             }
-            startlex: {
-              reader_context next;
-              reader_buffer_init(&next, recursive_buffer);
-              free(recursive_buffer);
-              recursive_allocation = 0;
-              // todo: print opening tag
-              parse(next, level + 1);
-              // todo: print closing tag
-            }
+          }
+          startlex: {
+            #ifdef DEBUG
+            printf("Entering recursive: %s\n", recursive_buffer);
+            #endif
+            reader_context next;
+            reader_buffer_init(&next, recursive_buffer);
+            free(recursive_buffer);
+            recursive_allocation = 0;
+            // todo: print opening tag
+            printf("Opening: %s\n", buffer);
+            parse(next, level + 1);
+            // todo: print closing tag
           }
         } else {
           printf("%s{\n", buffer);
@@ -109,6 +118,7 @@ int parse(reader_context context, const int level) {
     cleanup:
     free(buffer);
   }
+  writer_cleanup:
   free(write_buffer);
 }
 
