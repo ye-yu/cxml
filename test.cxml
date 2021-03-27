@@ -69,7 +69,7 @@ script{
 
 You can also specify the javascript subset that is supported by the transpiler.
 
-script[language="typescipt"]{
+script[language="typescript"]{
   let s: string
   s = "Hello. I am in a TypeScript script right now."
   console.log(s)
