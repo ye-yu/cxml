@@ -1,0 +1,81 @@
+// single-line comments are like this
+comments{
+  multi line comments
+  are like this
+}
+
+// these are the default behaviour of options
+option[
+  implied-break="on"
+  
+  // these includes the tag for
+  // html, head, and body
+  include-html="off"
+  include-head="off"
+  include-body="off"
+  
+  // or a one-liner for above
+  include="off off off"
+
+  // sets the character sets
+  charset="utf-8"
+  
+  // sets the main language
+  // of the page
+  lang="en"
+]{} 
+// the curly bracket is compulsory for the transpiler to see the options.
+
+This is a text body where span#body-content{styling}
+is a little bit different here.
+
+For a keyword to be transpiled into a tag, it must be
+immediately followed by code{&lcub;&rcub;}. However, anything
+inside the code{pre} and code{comments} tag is not affected by the transpiler.
+
+To add an attribute to the tag, the keyword must be followed by
+[], and the content can be anything following the old syntax.
+
+pre{
+  input[type="text"]{}
+  input[
+    type="number"
+    min="0"
+  ]{}
+}
+
+
+
+You can create both line break and horizontal rule like below:
+
+pre{
+  br{}
+  hr{}
+}
+
+But you can perform an implied break and horizontal line.
+
+This one above creates a line break.
+This one below creates a horizontal rule.
+--
+
+You can disable this option from the code{option} tag.
+
+JavaScript can be added in the same manner too! Take a look into your console.
+
+script{
+  console.log("This is scripted with CXML")
+}
+
+You can also specify the javascript subset that is supported by the transpiler.
+
+script[language="typescipt"]{
+  let s: string
+  s = "Hello. I am in a TypeScript script right now."
+  console.log(s)
+}
+
+But I think it is the best if you just source the scripts outside of this file.
+It looks cleaner if you don't mix syntaxes in a single file.
+
+script[src="http://some.where"]{}
