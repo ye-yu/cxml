@@ -26,7 +26,7 @@ option[
 ]{} 
 // the curly bracket is compulsory for the transpiler to see the options.
 
-This is a text body where span#body-content{styling}
+This is a text body where span#body-content {styling}
 is a little bit different here.
 
 For a keyword to be transpiled into a tag, it must be
@@ -41,6 +41,11 @@ pre{
   input[
     type="number"
     min="0"
+  ]{}
+  input#slider-id.slider-class[
+    type="slider"
+    min="0"
+    max="80"
   ]{}
 }
 

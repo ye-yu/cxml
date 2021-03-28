@@ -17,8 +17,13 @@
 */
 #include "reader.h"
 
-int reader_init(reader_context* context) {
-  if (context->buffer != NULL) return 1;
+static void _init(reader_context* context) {
+  context->buffer=NULL;
+  context->read_buffer=NULL;
+  context->file=NULL;
+}
+
+static int _output_buffer_init(reader_context* context) {
   context->allocated = 64;
   context->length = 0;
   context->buffer = malloc(sizeof(char) * context->allocated);
@@ -27,29 +32,31 @@ int reader_init(reader_context* context) {
   return 0;
 }
 
+int reader_stdin_init(reader_context* context) {
+  _init(context);
+  return _output_buffer_init(context);
+}
+
 int reader_file_init(reader_context* context, const char *filename) {
-  int error = 0;
-  if (context->file != NULL) context->file = fopen(filename, "r");
-  else error |= 0b1;
-  error |= (reader_init(context) << 1);
+  _init(context);
+  context->file = fopen(filename, "r");
+  int error = _output_buffer_init(context) | ((context->file == NULL) << 1);
   context->type = READER_FILE;
   return error;
 }
 
 int reader_buffer_init(reader_context* context, const char *buffer) {
+  _init(context);
   int error = 0;
-  if (context->read_buffer != NULL) {
-    const size_t len = strlen(buffer) + 1;
-    context->read_buffer = malloc(sizeof(char)*len);
-    if (context->read_buffer == NULL) error |= 0b10;
-    else {
-      for (size_t i = 0; i < len; i++) context->read_buffer[i] = '\0';
-      strcpy(context->read_buffer, buffer);
-    }
-    context->read_pointer=0;
+  const size_t len = strlen(buffer) + 1;
+  context->read_buffer = malloc(sizeof(char)*len);
+  if (context->read_buffer == NULL) error |= 0b1;
+  else {
+    for (size_t i = 0; i <= len; i++) context->read_buffer[i] = '\0';
+    strcpy(context->read_buffer, buffer);
   }
-  else error |= 0b1;
-  error |= (reader_init(context) << 2);
+  context->read_pointer=0;
+  error |= (_output_buffer_init(context) << 1);
   context->type = READER_BUFFER;
   return error;
 }

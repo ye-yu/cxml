@@ -2,6 +2,7 @@
   "files.associations": {
     "fileorstdin.h": "c",
     "*.tcc": "c",
-    "string": "c"
+    "string": "c",
+    "reader.h": "c"
   }
 }

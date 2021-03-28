@@ -47,48 +47,173 @@ static int allocate_more(void **pointer, size_t current_allocation, size_t point
   return current_allocation * 2;
 }
 
-int parse(reader_context context, const int level) {
-  printf("Entering level %d\n", level);
+static void empty_string(char *str, size_t count) {
+  for (size_t i = 0; i < count; i++) str[i] = '\0';
+}
+
+static void print_indent(size_t count) {
+  if (count == 0) return;
+  char *indent_str = malloc(sizeof(char) * count + 1);
+  for (size_t i = 0; i <= count; i++) {
+    indent_str[i] = i == count ? '\0' : ' ';
+  }
+  printf("%s", indent_str);
+  free(indent_str);
+}
+
+static int is_keyword_char(char c) {
+  return c == '.' || c == '#' || c == '-' || (c | 0b0100000) >= 'a' && (c | 0b0100000) <= 'z';
+}
+
+int parse(reader_context context, const size_t level) {
+  #ifdef DEBUG
+  printf("-- entering level %d\n", level);
+  #endif
   int matched;
-  int is_parsing_mode = 0;
   char *write_buffer = NULL;
   int write_buffer_allocation = 0;
   write_buffer_allocation = allocate_more((void**)&write_buffer, write_buffer_allocation, sizeof(char), ASSIGN_CHAR);
+  empty_string(write_buffer, write_buffer_allocation);
+
+  char *previous_token = NULL;
+  int previous_token_allocation = 0;
+  previous_token_allocation = allocate_more((void**)&previous_token, previous_token_allocation, sizeof(char), ASSIGN_CHAR);
+  empty_string(previous_token, previous_token_allocation);
+
+  char *previous_attribute = NULL;
+  int previous_attribute_allocation = 0;
+  previous_attribute_allocation = allocate_more((void**)&previous_attribute, previous_attribute_allocation, sizeof(char), ASSIGN_CHAR);
+  empty_string(previous_attribute, previous_attribute_allocation);
+
+  int newline_count = 0;
+
   reader_context *context_p = &context;
   while((matched = reader_tobuffer(context_p, 5, ' ', '\t', '\n', '[', '{')) != -2) {
     const size_t reader_len = reader_size(context_p);
-    if (!reader_len) goto writer_cleanup;
+    if (matched == -1 && !reader_len) goto writer_cleanup;
     char *buffer = malloc(sizeof(char)*reader_len + 1);
     for (size_t i = 0; i <= reader_len; i++) buffer[i] = '\0';
     reader_cpy(context_p, buffer);
     #ifdef DEBUG
-    printf("Parsing token: %s\n", buffer);
+    printf("-- parsing token: %s\n", buffer);
     #endif
 
-
     switch (matched) {
-      case -1: {
-        printf("%s\n", buffer);
-      } break;
-
+      case -1:
       case 0:
       case 1:
       case 2: {
-        if (is_parsing_mode) {
-          printf("In attribute parsing mode: %s\n", buffer);
-        } else printf("%s ", buffer);
-      } break;
+        if (strcmp(previous_token, "")) {
+          #ifdef DEBUG
+          printf("-- previous token\n");
+          #endif
+          print_indent(level * 2);
+          printf("%s\n", previous_token);
+        } 
+        
+        if (matched == -1) {
+          print_indent(level * 2);
+          printf("%s\n", buffer);
+        } else if (reader_size(context_p)){
+          if (previous_token_allocation < reader_size(context_p)) previous_token_allocation = allocate_more((void**)&previous_token, previous_token_allocation, sizeof(char), ASSIGN_CHAR);
+          strcpy(previous_token, buffer);
+        } else {
+          newline_count += matched == 2;
+        }
 
-      case 3: {
-        is_parsing_mode = !!reader_size(context_p);
-        if (is_parsing_mode) {
-          printf("Entering parsing mode:\n");
+        if (newline_count > 1) {
+          print_indent(level * 2);
+          puts("break rule");
         }
       } break;
 
+      case 3: {
+        newline_count = 0;
+        // todo: search till the end of bracket
+        char in_string = 0;
+        int escape_string = 0;
+        int length = 0;
+        char c = 0;
+        char c2str[2] = { '\0', '\0' };
+
+        char *attribute_buffer = NULL;
+        int attribute_allocation = 0;
+        attribute_allocation = allocate_more((void**)&attribute_buffer, attribute_allocation, sizeof(char), ASSIGN_CHAR);
+        empty_string(attribute_buffer, attribute_allocation);
+
+        while((c = reader_char(context_p)) != EOF) {
+          c2str[0] = c;
+          if ((length + 1.0) / attribute_allocation > 0.75) attribute_allocation = allocate_more((void**)&attribute_buffer, attribute_allocation, sizeof(char), ASSIGN_CHAR);
+          switch (c) {
+            case '"':
+            case '\'': {
+              if (in_string == c) {
+                if (!escape_string) in_string = 0;
+              } else {
+                in_string = in_string == 0 ? c : in_string;
+              }
+              strcat(attribute_buffer, c2str);
+            } break;
+            case '\\': {
+              escape_string = !!in_string;
+              strcat(attribute_buffer, c2str);
+              break;
+            }
+            case '[': {
+              if (in_string) {
+                strcat(attribute_buffer, c2str);
+                break;
+              }
+              
+              // todo: discard previous string
+              // and redo the whole thing
+              in_string = 0;
+              puts(previous_token);
+              puts(c2str);
+              // backtrack to the latest non
+              if (previous_token_allocation < attribute_allocation) previous_token_allocation = allocate_more((void**)&previous_token, previous_token_allocation, sizeof(char), ASSIGN_CHAR);
+              empty_string(previous_token, previous_token_allocation);
+
+              int backtrack = strlen(attribute_buffer);
+              for (size_t i = strlen(attribute_buffer) - 1; i >= 0; i--) {
+                if (!is_keyword_char(attribute_buffer[i])) break;
+                backtrack = i;
+              }
+
+              print_indent(level * 2);
+              printf("%.*s%c", backtrack, attribute_buffer, backtrack ? '\n' : '\0');
+              strcpy(previous_token, attribute_buffer + backtrack);
+              empty_string(attribute_buffer, attribute_allocation);
+            }
+            case ']':
+              if (in_string) {
+                strcat(attribute_buffer, c2str);
+                break;
+              }
+              goto finish_attribute;
+          }
+        }
+
+        finish_attribute:
+        if (previous_attribute_allocation < strlen(attribute_buffer) + 1) previous_attribute_allocation = allocate_more((void**)&previous_attribute, previous_attribute_allocation, sizeof(char), ASSIGN_CHAR);
+        strcpy(previous_attribute, attribute_buffer);
+      } break;
+
       case 4: {
+        newline_count = 0;
+        if (!reader_size(context_p) && !strlen(previous_token)) {
+          #ifdef DEBUG
+          printf("-- previous token - entering recursive\n");
+          #endif
+
+          print_indent(level * 2);
+          printf("%s\n", previous_token);
+        }
+
         int recursive = !!reader_size(context_p);
         if (recursive) {
+          if (previous_token_allocation < reader_size(context_p)) previous_token_allocation = allocate_more((void**)&previous_token, previous_token_allocation, sizeof(char), ASSIGN_CHAR);
+          strcpy(previous_token, buffer);
           char *recursive_buffer = NULL;
           int recursive_allocation = 0;
           int length = 0;
@@ -113,19 +238,27 @@ int parse(reader_context context, const int level) {
             }
           }
           startlex: {
-            #ifdef DEBUG
-            printf("Entering recursive: %s\n", recursive_buffer);
-            #endif
             reader_context next;
             reader_buffer_init(&next, recursive_buffer);
             free(recursive_buffer);
             recursive_allocation = 0;
             // todo: print opening tag
-            printf("Opening: %s\n", buffer);
+            #ifdef DEBUG
+            printf("-- opening\n");
+            #endif
+            print_indent(level * 2);
+            printf("%s\n", previous_token);
             parse(next, level + 1);
+            reader_close(&next);
             // todo: print closing tag
+            #ifdef DEBUG
+            printf("-- closing\n");
+            #endif
+            printf("%s\n", previous_token);
+            empty_string(previous_token, reader_len);
           }
         } else {
+          print_indent(level * 2);
           printf("%s{\n", buffer);
         }
       } break;
@@ -137,11 +270,37 @@ int parse(reader_context context, const int level) {
   }
   writer_cleanup:
   free(write_buffer);
+  free(previous_token);
+  free(previous_attribute);
 }
 
-int main() {
+int main(int argc, char **argv) {
   reader_context context;
-  reader_init(&context);
-  parse(context, 0);
+  if (argc < 2) {
+    reader_stdin_init(&context);
+    parse(context, 0);
+    reader_close(&context);
+    return 0;
+  }
+  int as_files = 0;
+  for (size_t i = 1; i < argc; i++) {
+    as_files |= !strcmp(argv[i], "-f") || !strcmp(argv[i], "--files");
+  }
+  
+
+  for (size_t i = 1; i < argc; i++) {
+    if (!strcmp(argv[i], "-f") || !strcmp(argv[i], "--files")) continue;
+    if (as_files) {
+      if (reader_file_init(&context, argv[i])) {
+        fprintf(stderr, "Cannot read file: %s\n", argv[i]);
+        reader_close(&context);
+        continue;
+      }
+    } else {
+      reader_buffer_init(&context, argv[i]);
+    }
+    parse(context, 0);
+    reader_close(&context);
+  }
   return 0;
 }

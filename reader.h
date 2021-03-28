@@ -43,19 +43,16 @@ typedef struct _buffercontext {
 /* 
   initializes a context to read from standard input
 
-  the return value is an error of a bit field with the following specification:
-    0b01 - output buffer has been initialized
-    0b10 - output buffer allocation error
+  the returns 1 if there is an output buffer allocation error
+  otherwise 0
 */
-extern int reader_init(reader_context* context);
+extern int reader_stdin_init(reader_context* context);
 
 /* 
   a context to read from a specified file
 
-  the return value is an error of a bit field with the following specification:
-    0b001 - file pointer error
-    0b010 - output buffer has been initialized
-    0b100 - output buffer allocation error
+  the returns 1 if there is an output buffer allocation error
+  otherwise 0
 */
 extern int reader_file_init(reader_context* context, const char *filename);
 
@@ -63,10 +60,9 @@ extern int reader_file_init(reader_context* context, const char *filename);
   a context to read from a specified string buffer
 
   the error is a bit field with the following specification:
-    0b0001 - the current read buffer has been initialized
-    0b0010 - read buffer allocation error
-    0b0100 - output buffer has been initialized
-    0b1000 - output buffer allocation error
+    0b001 - read buffer allocation error
+    0b010 - output buffer has been initialized
+    0b100 - output buffer allocation error
 */
 extern int reader_buffer_init(reader_context* context, const char *buffer);
 
