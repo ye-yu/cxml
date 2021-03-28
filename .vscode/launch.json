@@ -9,7 +9,10 @@
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/build/cxml.debug.exe",
-      "args": [],
+      "args": [
+        "-f",
+        "${workspaceFolder}/test/simple.cxml"
+      ],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],

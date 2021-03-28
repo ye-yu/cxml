@@ -108,7 +108,7 @@ int parse(reader_context context, const size_t level) {
           printf("-- previous token\n");
           #endif
           print_indent(level * 2);
-          printf("%s\n", previous_token);
+          printf("%s ", previous_token);
         } 
         
         if (matched == -1) {
@@ -123,7 +123,7 @@ int parse(reader_context context, const size_t level) {
 
         if (newline_count > 1) {
           print_indent(level * 2);
-          puts("break rule");
+          puts("\n<br>");
         }
       } break;
 
@@ -201,19 +201,22 @@ int parse(reader_context context, const size_t level) {
 
       case 4: {
         newline_count = 0;
-        if (!reader_size(context_p) && !strlen(previous_token)) {
-          #ifdef DEBUG
-          printf("-- previous token - entering recursive\n");
-          #endif
+        if (reader_size(context_p)) {
+            if (strlen(previous_token)) {
+            #ifdef DEBUG
+            printf("-- previous token - entering recursive\n");
+            #endif
 
-          print_indent(level * 2);
-          printf("%s\n", previous_token);
-        }
-
-        int recursive = !!reader_size(context_p);
-        if (recursive) {
+            print_indent(level * 2);
+            printf("%s\n", previous_token);
+          }
           if (previous_token_allocation < reader_size(context_p)) previous_token_allocation = allocate_more((void**)&previous_token, previous_token_allocation, sizeof(char), ASSIGN_CHAR);
           strcpy(previous_token, buffer);
+        }
+
+        int recursive = strlen(previous_token);
+
+        if (recursive) {
           char *recursive_buffer = NULL;
           int recursive_allocation = 0;
           int length = 0;
@@ -255,7 +258,7 @@ int parse(reader_context context, const size_t level) {
             printf("-- closing\n");
             #endif
             printf("%s\n", previous_token);
-            empty_string(previous_token, reader_len);
+            empty_string(previous_token, previous_token_allocation);
           }
         } else {
           print_indent(level * 2);
