@@ -17,6 +17,13 @@
 */
 #include "reader.h"
 
+static int _clear_buffer(reader_context* context) {
+  if (context->buffer == NULL) return 1;
+  for (size_t i = 0; i < context->allocated; i++) context->buffer[i] = '\0';
+  context->length = 0;
+  return 0;
+}
+
 static void _init(reader_context* context) {
   context->buffer=NULL;
   context->read_buffer=NULL;
@@ -27,13 +34,14 @@ static int _output_buffer_init(reader_context* context) {
   context->allocated = 64;
   context->length = 0;
   context->buffer = malloc(sizeof(char) * context->allocated);
-  context->type = READER_STDIN;
   if (context->buffer == NULL) return 1 << 1;
+  _clear_buffer(context);
   return 0;
 }
 
 int reader_stdin_init(reader_context* context) {
   _init(context);
+  context->type = READER_STDIN;
   return _output_buffer_init(context);
 }
 
@@ -50,7 +58,7 @@ int reader_buffer_init(reader_context* context, const char *buffer) {
   int error = 0;
   const size_t len = strlen(buffer) + 1;
   context->read_buffer = malloc(sizeof(char)*len);
-  if (context->read_buffer == NULL) error |= 0b1;
+  if (context->read_buffer == NULL) error |= 1;
   else {
     for (size_t i = 0; i <= len; i++) context->read_buffer[i] = '\0';
     strcpy(context->read_buffer, buffer);
@@ -68,22 +76,30 @@ static char _read_char(reader_context* context) {
 }
 
 char reader_char(reader_context* context) {
-  return context->type == READER_STDIN 
+  char c = context->type == READER_STDIN 
     ? getc(stdin)
     : context->type == READER_FILE
       ? getc(context->file)
       : _read_char(context);
+  
+  #ifdef DEBUG
+  char *mode = context->type == READER_STDIN 
+    ? "stdin"
+    : context->type == READER_FILE
+      ? "file"
+      : "buffer";
+  
+  printf("\n-- reader.c reading char (%s mode): %c\n", mode, c);
+  #endif
+  return c;
 }
 
-int reader_cpy(reader_context* context, char *dest) {
-  strcpy(dest, context->buffer);
-}
+void reader_cpy(reader_context* context, char *dest) {
+  #ifdef DEBUG
+  if (reader_size(context)) printf("-- reader.c: copying %s\n", context->buffer);
+  #endif
 
-static int _clear_buffer(reader_context* context) {
-  if (context->buffer == NULL) return 1;
-  for (size_t i = 0; i < context->allocated; i++) context->buffer[i] = '\0';
-  context->length = 0;
-  return 0;
+  strcpy(dest, reader_size(context) ? context->buffer : "");
 }
 
 int allocate_more(reader_context* context) {
@@ -116,14 +132,15 @@ static int _char_is_in(char c, char*buf, size_t count) {
 }
 
 int reader_tobuffer(reader_context* context, size_t count, ...) {
+  va_list ap;
+  va_start(ap, count);
   // an error has occured
   if (_clear_buffer(context)) {
     fprintf(stderr, "Cannot clear buffer before reading stdin.");
+    va_end(ap);
     return -2;
   }
 
-  va_list ap;
-  va_start(ap, count);
   char *delims = malloc(sizeof(char)*count);
   for (size_t i = 0; i < count; i++) delims[i] = va_arg(ap, int);  
 
@@ -148,7 +165,7 @@ int reader_word(reader_context* context) {
   return reader_tobuffer(context, 3, ' ', '\t', '\n');
 }
 
-int reader_size(reader_context* context) {
+size_t reader_size(reader_context* context) {
   return context->length;
 }
 

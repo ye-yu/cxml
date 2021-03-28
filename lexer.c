@@ -17,75 +17,69 @@
 */
 #include "reader.h"
 
-typedef enum _assign_as {
-  ASSIGN_CHAR,
-  ASSIGN_INT
-} assign_as;
-
-static int allocate_more(void **pointer, size_t current_allocation, size_t pointer_size, int assign_as) {
+static int allocate_str(char **pointer, size_t current_allocation) {
   current_allocation = current_allocation == 0 ? 32 : current_allocation;
-  void *temp = *pointer;
-  *pointer = malloc(pointer_size * current_allocation * 2);
+  char *temp = *pointer;
+  *pointer = malloc(sizeof(char) * current_allocation * 2);
   if (*pointer == NULL) {
     *pointer = temp;
     return 0;
   }
 
   for (size_t i = 0; temp != NULL && i < current_allocation; i++) {
-    switch (assign_as) {
-      case ASSIGN_CHAR: {
-        char *p = *pointer;
-        char *f = temp;
-        p[i] = f[i];
-      } break;
-      default:
-        break;
-    }
+    (*pointer)[i] = temp[i];
   }
   
   free(temp);
   return current_allocation * 2;
 }
 
+
 static void empty_string(char *str, size_t count) {
   for (size_t i = 0; i < count; i++) str[i] = '\0';
 }
 
 static void print_indent(size_t count) {
-  if (count == 0) return;
-  char *indent_str = malloc(sizeof(char) * count + 1);
-  for (size_t i = 0; i <= count; i++) {
-    indent_str[i] = i == count ? '\0' : ' ';
-  }
-  printf("%s", indent_str);
-  free(indent_str);
+  for (size_t i = 0; i < count; i++) putc(' ', stdout);
 }
 
 static int is_keyword_char(char c) {
-  return c == '.' || c == '#' || c == '-' || (c | 0b0100000) >= 'a' && (c | 0b0100000) <= 'z';
+  return c == '.' || c == '#' || c == '-' || ((c | 32) >= 'a' && (c | 32) <= 'z');
 }
 
-int parse(reader_context context, const size_t level) {
+static int is_whitespace(char c) {
+  return c == ' ' || c == '\t' || c == '\n';
+}
+
+static int only_whitespace(const char *buffer, const size_t size) {
+  for (size_t i = 0; i < size; i++) {
+    char c = buffer[i];
+    if (c != ' ' && c != '\t' && c != '\n') return 0;
+  }
+  return 1;
+}
+
+void parse(reader_context context, const size_t level) {
   #ifdef DEBUG
   printf("-- entering level %d\n", level);
   #endif
   int matched;
   char *write_buffer = NULL;
-  int write_buffer_allocation = 0;
-  write_buffer_allocation = allocate_more((void**)&write_buffer, write_buffer_allocation, sizeof(char), ASSIGN_CHAR);
+  size_t write_buffer_allocation = 0;
+  write_buffer_allocation = allocate_str(&write_buffer, write_buffer_allocation);
   empty_string(write_buffer, write_buffer_allocation);
 
   char *previous_token = NULL;
-  int previous_token_allocation = 0;
-  previous_token_allocation = allocate_more((void**)&previous_token, previous_token_allocation, sizeof(char), ASSIGN_CHAR);
+  size_t previous_token_allocation = 0;
+  previous_token_allocation = allocate_str(&previous_token, previous_token_allocation);
   empty_string(previous_token, previous_token_allocation);
 
   char *previous_attribute = NULL;
-  int previous_attribute_allocation = 0;
-  previous_attribute_allocation = allocate_more((void**)&previous_attribute, previous_attribute_allocation, sizeof(char), ASSIGN_CHAR);
+  size_t  previous_attribute_allocation = 0;
+  previous_attribute_allocation = allocate_str(&previous_attribute, previous_attribute_allocation);
   empty_string(previous_attribute, previous_attribute_allocation);
 
-  int newline_count = 0;
+  int print_next_indent = 2;
 
   reader_context *context_p = &context;
   while((matched = reader_tobuffer(context_p, 5, ' ', '\t', '\n', '[', '{')) != -2) {
@@ -107,28 +101,28 @@ int parse(reader_context context, const size_t level) {
           #ifdef DEBUG
           printf("-- previous token\n");
           #endif
-          print_indent(level * 2);
+          print_indent((!!print_next_indent) * level * 2);
+          print_next_indent = 0;
           printf("%s ", previous_token);
+          empty_string(previous_token, previous_token_allocation);
         } 
         
-        if (matched == -1) {
-          print_indent(level * 2);
+        if (matched == -1 && reader_len) {
+          print_indent((!!print_next_indent) * level * 2);
+          print_next_indent = 0;
           printf("%s\n", buffer);
-        } else if (reader_size(context_p)){
-          if (previous_token_allocation < reader_size(context_p)) previous_token_allocation = allocate_more((void**)&previous_token, previous_token_allocation, sizeof(char), ASSIGN_CHAR);
-          strcpy(previous_token, buffer);
         } else {
-          newline_count += matched == 2;
+          if (previous_token_allocation < reader_len) previous_token_allocation = allocate_str(&previous_token, previous_token_allocation);
+          strcpy(previous_token, buffer);
         }
-
-        if (newline_count > 1) {
-          print_indent(level * 2);
-          puts("\n<br>");
-        }
+        print_next_indent += print_next_indent == 2 ? 0 : only_whitespace(buffer, reader_len) && matched == 2;
       } break;
 
       case 3: {
-        newline_count = 0;
+        #ifdef DEBUG
+        printf("-- entered unimplemented code: %s\n", buffer);
+        #endif
+
         // todo: search till the end of bracket
         char in_string = 0;
         int escape_string = 0;
@@ -137,13 +131,13 @@ int parse(reader_context context, const size_t level) {
         char c2str[2] = { '\0', '\0' };
 
         char *attribute_buffer = NULL;
-        int attribute_allocation = 0;
-        attribute_allocation = allocate_more((void**)&attribute_buffer, attribute_allocation, sizeof(char), ASSIGN_CHAR);
+        size_t attribute_allocation = 0;
+        attribute_allocation = allocate_str(&attribute_buffer, attribute_allocation);
         empty_string(attribute_buffer, attribute_allocation);
 
         while((c = reader_char(context_p)) != EOF) {
           c2str[0] = c;
-          if ((length + 1.0) / attribute_allocation > 0.75) attribute_allocation = allocate_more((void**)&attribute_buffer, attribute_allocation, sizeof(char), ASSIGN_CHAR);
+          if ((length + 1.0) / attribute_allocation > 0.75) attribute_allocation = allocate_str(&attribute_buffer, attribute_allocation);
           switch (c) {
             case '"':
             case '\'': {
@@ -171,19 +165,24 @@ int parse(reader_context context, const size_t level) {
               puts(previous_token);
               puts(c2str);
               // backtrack to the latest non
-              if (previous_token_allocation < attribute_allocation) previous_token_allocation = allocate_more((void**)&previous_token, previous_token_allocation, sizeof(char), ASSIGN_CHAR);
+              if (previous_token_allocation < attribute_allocation) previous_token_allocation = allocate_str(&previous_token, previous_token_allocation);
               empty_string(previous_token, previous_token_allocation);
 
-              int backtrack = strlen(attribute_buffer);
-              for (size_t i = strlen(attribute_buffer) - 1; i >= 0; i--) {
-                if (!is_keyword_char(attribute_buffer[i])) break;
-                backtrack = i;
+              size_t backtrack = strlen(attribute_buffer); 
+              {
+                size_t i = strlen(attribute_buffer);
+                do {
+                  if (!is_keyword_char(attribute_buffer[i])) break;
+                  backtrack = i--;
+                  if (i == 0) break;
+                } while (1);
               }
 
               print_indent(level * 2);
-              printf("%.*s%c", backtrack, attribute_buffer, backtrack ? '\n' : '\0');
+              printf("%.*s%c", (int)backtrack, attribute_buffer, backtrack ? '\n' : '\0');
               strcpy(previous_token, attribute_buffer + backtrack);
               empty_string(attribute_buffer, attribute_allocation);
+              break;
             }
             case ']':
               if (in_string) {
@@ -195,38 +194,39 @@ int parse(reader_context context, const size_t level) {
         }
 
         finish_attribute:
-        if (previous_attribute_allocation < strlen(attribute_buffer) + 1) previous_attribute_allocation = allocate_more((void**)&previous_attribute, previous_attribute_allocation, sizeof(char), ASSIGN_CHAR);
+        if (previous_attribute_allocation < strlen(attribute_buffer) + 1) previous_attribute_allocation = allocate_str(&previous_attribute, previous_attribute_allocation);
         strcpy(previous_attribute, attribute_buffer);
       } break;
 
       case 4: {
-        newline_count = 0;
         if (reader_size(context_p)) {
             if (strlen(previous_token)) {
             #ifdef DEBUG
             printf("-- previous token - entering recursive\n");
             #endif
 
-            print_indent(level * 2);
+            print_indent((!print_next_indent) * level * 2);
+            print_next_indent = 0;
             printf("%s\n", previous_token);
           }
-          if (previous_token_allocation < reader_size(context_p)) previous_token_allocation = allocate_more((void**)&previous_token, previous_token_allocation, sizeof(char), ASSIGN_CHAR);
+          if (previous_token_allocation < reader_size(context_p)) previous_token_allocation = allocate_str(&previous_token, previous_token_allocation);
           strcpy(previous_token, buffer);
         }
 
         int recursive = strlen(previous_token);
 
         if (recursive) {
-          char *recursive_buffer = NULL;
-          int recursive_allocation = 0;
           int length = 0;
           char c = 0;
           char c2str[2] = { '\0', '\0' };
           int blocks = 0;
-          recursive_allocation = allocate_more((void**)&recursive_buffer, recursive_allocation, sizeof(char), ASSIGN_CHAR);
+          char *recursive_buffer = NULL;
+          size_t recursive_allocation = 0;
+          recursive_allocation = allocate_str(&recursive_buffer, recursive_allocation);
+          empty_string(recursive_buffer, recursive_allocation);
           while((c = reader_char(context_p)) != EOF) {
             c2str[0] = c;
-            if ((length + 1.0) / recursive_allocation > 0.75)recursive_allocation = allocate_more((void**)&recursive_buffer, recursive_allocation, sizeof(char), ASSIGN_CHAR);
+            if ((length + 1.0) / recursive_allocation > 0.75)recursive_allocation = allocate_str(&recursive_buffer, recursive_allocation);
             switch (c) {
               case '{':
                 blocks++;
@@ -235,6 +235,7 @@ int parse(reader_context context, const size_t level) {
               case '}':
                 if (!blocks) goto startlex;
                 blocks--;
+                __attribute__ ((fallthrough));
               default:
                 strcat(recursive_buffer, c2str);
                 break;
@@ -242,22 +243,34 @@ int parse(reader_context context, const size_t level) {
           }
           startlex: {
             reader_context next;
-            reader_buffer_init(&next, recursive_buffer);
+            size_t nonnewline = 0;
+            for (size_t i = 0; i < strlen(recursive_buffer); i++) {
+              if (!is_whitespace(recursive_buffer[i])) break;
+              nonnewline++;
+            }
+            
+            reader_buffer_init(&next, recursive_buffer + nonnewline);
+            #ifdef DEBUG
+            printf("-- init buffer %s\n", recursive_buffer + nonnewline);
+            #endif
             free(recursive_buffer);
             recursive_allocation = 0;
             // todo: print opening tag
             #ifdef DEBUG
             printf("-- opening\n");
             #endif
+            puts("");
             print_indent(level * 2);
-            printf("%s\n", previous_token);
+            printf("<%s>\n", previous_token);
             parse(next, level + 1);
             reader_close(&next);
             // todo: print closing tag
             #ifdef DEBUG
             printf("-- closing\n");
             #endif
-            printf("%s\n", previous_token);
+            puts("");
+            print_indent(level * 2);
+            printf("</%s>", previous_token);
             empty_string(previous_token, previous_token_allocation);
           }
         } else {
@@ -268,7 +281,6 @@ int parse(reader_context context, const size_t level) {
       default:
         break;
     }
-    cleanup:
     free(buffer);
   }
   writer_cleanup:
@@ -286,12 +298,12 @@ int main(int argc, char **argv) {
     return 0;
   }
   int as_files = 0;
-  for (size_t i = 1; i < argc; i++) {
+  for (int i = 1; i < argc; i++) {
     as_files |= !strcmp(argv[i], "-f") || !strcmp(argv[i], "--files");
   }
   
 
-  for (size_t i = 1; i < argc; i++) {
+  for (int i = 1; i < argc; i++) {
     if (!strcmp(argv[i], "-f") || !strcmp(argv[i], "--files")) continue;
     if (as_files) {
       if (reader_file_init(&context, argv[i])) {

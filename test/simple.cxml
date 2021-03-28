@@ -1,8 +1,10 @@
-this is a text.
+a text.
 
 p {
-  this inside a p
-  let's do a span {
-    span
+  inside p
+  a span {
+    hello another span {
+      span
+    }
   }
 }

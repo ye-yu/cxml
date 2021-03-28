@@ -31,10 +31,10 @@ typedef struct _buffercontext {
   FILE *file;
   reader_readtype type;
   char *read_buffer;
-  int read_pointer;
+  size_t read_pointer;
   char *buffer;
-  int allocated;
-  int length;
+  size_t allocated;
+  size_t length;
 } reader_context;
 
 
@@ -69,7 +69,7 @@ extern int reader_buffer_init(reader_context* context, const char *buffer);
 // <<< INITIALIZATION <<<
 
 /* copies current read result into the destination */
-extern int reader_cpy(reader_context* context, char *dest);
+extern void reader_cpy(reader_context* context, char *dest);
 /* reads context by character */
 extern char reader_char(reader_context* context);
 
@@ -77,5 +77,5 @@ extern char reader_char(reader_context* context);
 extern int reader_tobuffer(reader_context* context, size_t count, ...);
 extern int reader_line(reader_context* context);
 extern int reader_word(reader_context* context);
-extern int reader_size(reader_context* context);
+extern size_t reader_size(reader_context* context);
 extern void reader_close(reader_context* context);
