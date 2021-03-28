@@ -1,10 +1,7 @@
 a text.
-
 p {
   inside p
   a span {
-    hello another span {
-      span
-    }
+    span span span span span span span span span span span span span span span 
   }
 }

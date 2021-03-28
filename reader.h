@@ -64,7 +64,7 @@ extern int reader_file_init(reader_context* context, const char *filename);
     0b010 - output buffer has been initialized
     0b100 - output buffer allocation error
 */
-extern int reader_buffer_init(reader_context* context, const char *buffer);
+extern int reader_buffer_init(reader_context* context, char *buffer);
 
 // <<< INITIALIZATION <<<
 

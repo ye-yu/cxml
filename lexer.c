@@ -26,17 +26,14 @@ static int allocate_str(char **pointer, size_t current_allocation) {
     return 0;
   }
 
-  for (size_t i = 0; temp != NULL && i < current_allocation; i++) {
-    (*pointer)[i] = temp[i];
-  }
-  
+  if (temp != NULL) strcpy(*pointer, temp);
   free(temp);
   return current_allocation * 2;
 }
 
 
 static void empty_string(char *str, size_t count) {
-  for (size_t i = 0; i < count; i++) str[i] = '\0';
+  strncpy(str, "", count);
 }
 
 static void print_indent(size_t count) {
@@ -226,7 +223,7 @@ void parse(reader_context context, const size_t level) {
           empty_string(recursive_buffer, recursive_allocation);
           while((c = reader_char(context_p)) != EOF) {
             c2str[0] = c;
-            if ((length + 1.0) / recursive_allocation > 0.75)recursive_allocation = allocate_str(&recursive_buffer, recursive_allocation);
+            if ((++length + 1.0) / recursive_allocation > 0.75) recursive_allocation = allocate_str(&recursive_buffer, recursive_allocation);
             switch (c) {
               case '{':
                 blocks++;

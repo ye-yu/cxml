@@ -53,16 +53,13 @@ int reader_file_init(reader_context* context, const char *filename) {
   return error;
 }
 
-int reader_buffer_init(reader_context* context, const char *buffer) {
+int reader_buffer_init(reader_context* context, char *buffer) {
   _init(context);
   int error = 0;
   const size_t len = strlen(buffer) + 1;
   context->read_buffer = malloc(sizeof(char)*len);
   if (context->read_buffer == NULL) error |= 1;
-  else {
-    for (size_t i = 0; i <= len; i++) context->read_buffer[i] = '\0';
-    strcpy(context->read_buffer, buffer);
-  }
+  else strcpy(context->read_buffer, buffer);
   context->read_pointer=0;
   error |= (_output_buffer_init(context) << 1);
   context->type = READER_BUFFER;

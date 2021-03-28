@@ -4,7 +4,7 @@ readero: reader.c
 
 readerg: reader.c
 	mkdir -p build
-	gcc -Og -g -c reader.c -o ./build/reader.g -DDEBUG
+	gcc --std=c17 -g -c reader.c -o ./build/reader.g -DDEBUG
 
 lexero:
 	mkdir -p build
@@ -12,7 +12,7 @@ lexero:
 
 lexerg:
 	mkdir -p build
-	gcc -Og -g -c lexer.c -o ./build/lexer.g -DDEBUG
+	gcc --std=c17 -g -c lexer.c -o ./build/lexer.g -DDEBUG
 
 cxml: lexer.c
 	mkdir -p build
@@ -24,7 +24,7 @@ debug: lexer.c
 	mkdir -p build
 	make readerg
 	make lexerg
-	gcc -Og -g ./build/lexer.g ./build/reader.g -o ./build/cxml.debug.exe -DDEBUG
+	gcc --std=c17 -g ./build/lexer.g ./build/reader.g -o ./build/cxml.debug.exe -DDEBUG
 
 clean:
 	rm -rf build/*
